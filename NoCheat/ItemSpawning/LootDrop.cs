@@ -585,11 +585,11 @@ namespace NoCheat.ItemSpawning
             {
                 var stackLeft = _maxStackSize;
                 var succeeded = false;
-                foreach (var debit in debits.Where(d => d.ItemId == _itemId && d.StackSize > 0))
+                foreach (var debit in debits.Where(d => d.ItemId == _itemId && d.StackSize < 0))
                 {
-                    var payment = Math.Min(stackLeft, debit.StackSize);
+                    var payment = Math.Min(stackLeft, -debit.StackSize);
                     stackLeft -= payment;
-                    debit.StackSize -= payment;
+                    debit.StackSize += payment;
                     succeeded = true;
 
                     // Stop if the stack has been cleared out so we don't unnecessarily check more debits.
