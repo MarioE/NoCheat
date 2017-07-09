@@ -650,10 +650,17 @@ namespace NoCheat.ItemSpawning
             }
 
             var projectileItem = _shootLookup[projectileId].FirstOrDefault();
-            if (projectileItem != null && projectileItem.ammo == 0 && projectileItem.consumable)
+            if (projectileItem != null && projectileItem.consumable)
             {
-                // Debit the player for the item that creates the projectile. We don't bother checking for ammo, since
-                // ammo consumption can be reduced.
+                var tplayer = player.TPlayer;
+                if (projectileItem.ranged && (tplayer.ammoCost75 || tplayer.ammoCost80) ||
+                    projectileItem.thrown && (tplayer.thrownCost33 || tplayer.thrownCost50))
+                {
+                    return;
+                }
+
+                // Debit the player for the item that creates the projectile, provided that they do not have ammo cost
+                // reductions.
                 // TODO: consider heuristic based approach? Probably not worth it.
                 var balanceSheet = player.GetOrCreateBalanceSheet();
                 balanceSheet.AddTransaction(new Transaction(projectileItem.type, -1));
