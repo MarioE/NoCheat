@@ -12,7 +12,6 @@ namespace NoCheat.ItemSpawning
     /// <summary>
     ///     Provides a thread-safe item balance sheet for a player.
     /// </summary>
-    // TODO: handle 5x defender medals for first time
     public sealed class BalanceSheet
     {
         private static Dictionary<int, LootDrop> _lootDrops;
@@ -283,6 +282,12 @@ namespace NoCheat.ItemSpawning
             if (fishingDrops.IsContainedIn(debits))
             {
                 fishingDrops.Apply(debits);
+            }
+            // 5 defender medals can be obtained for free from the tavernkeep, so we just clear this out.
+            // TODO: rework this. This is a bandaid.
+            foreach (var debit in debits.Where(d => d.ItemId == ItemID.DefenderMedal && d.StackSize == -5))
+            {
+                debit.StackSize = 0;
             }
         }
 
