@@ -262,6 +262,9 @@ namespace NoCheat.ItemSpawning
                     case PacketTypes.PlaceItemFrame:
                         OnUpdateItemFrame(player, reader);
                         return;
+                    case PacketTypes.CrystalInvasionStart:
+                        OnStartOldOnesInvasion(player);
+                        return;
                 }
             }
         }
@@ -343,6 +346,13 @@ namespace NoCheat.ItemSpawning
             balanceSheet.Update(stageDurations);
 
             HandleInvalidDebits(player);
+        }
+
+        private void OnStartOldOnesInvasion(TSPlayer player)
+        {
+            // Debit the player for the Eternia crystal.
+            var balanceSheet = player.GetOrCreateBalanceSheet();
+            balanceSheet.AddTransaction(new Transaction(ItemID.DD2ElderCrystal, -1));
         }
 
         private void OnStrikeNpc(TSPlayer player)
@@ -643,6 +653,7 @@ namespace NoCheat.ItemSpawning
                     if (player.SelectedItem.type == ItemID.Sickle)
                     {
                         // Credit the player for hay, since the player spawns it when mowing grass with the sickle.
+                        // TODO: check if they actually cut grass, and make sure they actually swung
                         balanceSheet.AddTransaction(new Transaction(ItemID.Hay, 4));
                     }
                     return;

@@ -117,8 +117,8 @@ namespace NoCheat.ItemSpawning
             Of(ItemID.PlatinumOre, 16),
 
             // Coins
-            Of(ItemID.CopperCoin, 11000000), Of(ItemID.CopperCoin, 1000000), Of(ItemID.CopperCoin, 10000),
-            Of(ItemID.CopperCoin, 100));
+            Of(ItemID.CopperCoin, 11_00_00_00), Of(ItemID.CopperCoin, 1_00_00_00), Of(ItemID.CopperCoin, 1_00_00),
+            Of(ItemID.CopperCoin, 1_00));
 
         /// <summary>
         ///     The drops available from fishing.
@@ -134,6 +134,7 @@ namespace NoCheat.ItemSpawning
             Of(ItemID.Trout), Of(ItemID.Tuna), Of(ItemID.VariegatedLardfish),
 
             // Quest fish
+            // TODO: consider making this only accept the current quest fish? Probably not worth it?
             Of(ItemID.AmanitiaFungifin), Of(ItemID.Angelfish), Of(ItemID.Batfish), Of(ItemID.BloodyManowar),
             Of(ItemID.Bonefish), Of(ItemID.BumblebeeTuna), Of(ItemID.Bunnyfish), Of(ItemID.CapnTunabeard),
             Of(ItemID.Catfish), Of(ItemID.Cloudfish), Of(ItemID.Clownfish), Of(ItemID.Cursedfish),
@@ -243,7 +244,7 @@ namespace NoCheat.ItemSpawning
                     Of(ItemID.TrapsightPotion, 3))),
                 Maybe(One(Of(ItemID.LesserHealingPotion, 15), Of(ItemID.LesserManaPotion, 15))),
                 Maybe(One(Of(ItemID.ApprenticeBait, 4), Of(ItemID.JourneymanBait, 4))),
-                Maybe(Of(ItemID.CopperCoin, 59000))),
+                Maybe(Of(ItemID.CopperCoin, 5_90_00))),
 
             [ItemID.IronCrate] = All(
                 Maybe(Of(ItemID.Sundial)),
@@ -262,7 +263,7 @@ namespace NoCheat.ItemSpawning
                     Of(ItemID.CalmingPotion, 3), Of(ItemID.FlipperPotion, 3))),
                 Maybe(One(Of(ItemID.HealingPotion, 15), Of(ItemID.ManaPotion, 15))),
                 Maybe(One(Of(ItemID.JourneymanBait, 4), Of(ItemID.MasterBait, 4))),
-                Maybe(Of(ItemID.CopperCoin, 100000))),
+                Maybe(Of(ItemID.CopperCoin, 10_00_00))),
 
             [ItemID.GoldenCrate] = All(
                 Maybe(Of(ItemID.Sundial)),
@@ -275,7 +276,7 @@ namespace NoCheat.ItemSpawning
                     Of(ItemID.GravitationPotion, 3), Of(ItemID.MiningPotion, 3), Of(ItemID.HeartreachPotion, 3))),
                 Maybe(One(Of(ItemID.GreaterHealingPotion, 20), Of(ItemID.GreaterManaPotion, 20))),
                 Maybe(Of(ItemID.MasterBait, 7)),
-                Maybe(Of(ItemID.CopperCoin, 200000))),
+                Maybe(Of(ItemID.CopperCoin, 20_00_00))),
 
             [ItemID.LockBox] = All(
                 One(Of(ItemID.MagicMissile), Of(ItemID.Muramasa), Of(ItemID.CobaltShield), Of(ItemID.AquaScepter),
@@ -284,7 +285,7 @@ namespace NoCheat.ItemSpawning
                     Of(ItemID.HeartreachPotion), Of(ItemID.IronskinPotion), Of(ItemID.MagicPowerPotion),
                     Of(ItemID.ObsidianSkinPotion), Of(ItemID.WormholePotion))),
                 Maybe(Of(ItemID.HealingPotion)),
-                Maybe(Of(ItemID.CopperCoin, 69999))),
+                Maybe(Of(ItemID.CopperCoin, 6_99_99))),
 
             // Herb bags can run their drops either 3 or 4 times.
             [ItemID.HerbBag] = All(
@@ -331,7 +332,7 @@ namespace NoCheat.ItemSpawning
                 One(Of(ItemID.NinjaHood), Of(ItemID.NinjaShirt), Of(ItemID.NinjaPants)),
                 One(Of(ItemID.SlimeGun), Of(ItemID.SlimeHook)),
                 Of(ItemID.Solidifier),
-                Of(ItemID.CopperCoin, 144144),
+                Of(ItemID.CopperCoin, 14_41_44),
                 Maybe(Of(ItemID.KingSlimeMask)),
                 Maybe(Of(ItemID.SlimySaddle))),
 
@@ -339,7 +340,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.EoCShield),
                 One(All(Of(ItemID.CrimtaneOre, 87), Of(ItemID.CrimsonSeeds, 3)),
                     All(Of(ItemID.DemoniteOre, 87), Of(ItemID.CorruptSeeds, 3), Of(ItemID.UnholyArrow, 49))),
-                Of(ItemID.CopperCoin, 86486),
+                Of(ItemID.CopperCoin, 8_64_86),
                 Maybe(Of(ItemID.EyeMask)),
                 Maybe(Of(ItemID.Binoculars)),
                 Maybe(Of(ItemID.AviatorSunglasses))),
@@ -348,7 +349,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.WormScarf),
                 Of(ItemID.DemoniteOre, 59),
                 Of(ItemID.ShadowScale, 19),
-                Of(ItemID.CopperCoin, 865),
+                Of(ItemID.CopperCoin, 8_65),
                 Maybe(Of(ItemID.EaterMask)),
                 Maybe(Of(ItemID.EatersBone))),
 
@@ -356,7 +357,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.BrainOfConfusion),
                 Of(ItemID.CrimtaneOre, 90),
                 Of(ItemID.TissueSample, 19),
-                Of(ItemID.CopperCoin, 144144),
+                Of(ItemID.CopperCoin, 14_41_44),
                 Maybe(Of(ItemID.BrainMask)),
                 Maybe(Of(ItemID.BoneRattle))),
 
@@ -367,7 +368,7 @@ namespace NoCheat.ItemSpawning
                 One(Of(ItemID.BeeHat), Of(ItemID.BeeShirt), Of(ItemID.BeePants)),
                 Of(ItemID.Beenade, 29),
                 Of(ItemID.BeeWax, 29),
-                Of(ItemID.CopperCoin, 288288),
+                Of(ItemID.CopperCoin, 28_82_88),
                 Maybe(Of(ItemID.BeeMask)),
                 Maybe(Of(ItemID.HoneyComb)),
                 Maybe(Of(ItemID.Nectar)),
@@ -376,7 +377,7 @@ namespace NoCheat.ItemSpawning
             [ItemID.SkeletronBossBag] = All(
                 Of(ItemID.BoneGlove),
                 One(Of(ItemID.SkeletronMask), Of(ItemID.SkeletronHand), Of(ItemID.BookofSkulls)),
-                Of(ItemID.CopperCoin, 144144)),
+                Of(ItemID.CopperCoin, 14_41_44)),
 
             // The demon heart is a guaranteed drop if the player has not already used one. So we use Maybe for
             // simplicity.
@@ -387,13 +388,13 @@ namespace NoCheat.ItemSpawning
                 One(Of(ItemID.LaserRifle), Of(ItemID.BreakerBlade), Of(ItemID.ClockworkAssaultRifle)),
                 Maybe(Of(ItemID.FleshMask)),
                 Maybe(Of(ItemID.DemonHeart)),
-                Of(ItemID.CopperCoin, 230630)),
+                Of(ItemID.CopperCoin, 23_06_30)),
 
             [ItemID.DestroyerBossBag] = All(
                 Of(ItemID.MechanicalWagonPiece),
                 Of(ItemID.SoulofMight, 40),
                 Of(ItemID.HallowedBar, 35),
-                Of(ItemID.CopperCoin, 345946),
+                Of(ItemID.CopperCoin, 34_59_46),
                 Maybe(Of(ItemID.DestroyerMask)),
                 Maybe(DeveloperSets)),
 
@@ -401,7 +402,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.MechanicalWheelPiece),
                 Of(ItemID.SoulofSight, 40),
                 Of(ItemID.HallowedBar, 35),
-                Of(ItemID.CopperCoin, 345946),
+                Of(ItemID.CopperCoin, 34_59_46),
                 Maybe(Of(ItemID.TwinMask)),
                 Maybe(DeveloperSets)),
 
@@ -409,7 +410,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.MechanicalBatteryPiece),
                 Of(ItemID.SoulofFright, 40),
                 Of(ItemID.HallowedBar, 35),
-                Of(ItemID.CopperCoin, 345946),
+                Of(ItemID.CopperCoin, 34_59_46),
                 Maybe(Of(ItemID.SkeletronPrimeMask)),
                 Maybe(DeveloperSets)),
 
@@ -419,7 +420,7 @@ namespace NoCheat.ItemSpawning
                 One(All(Of(ItemID.GrenadeLauncher),
                         Of(ItemID.RocketI, 49)), Of(ItemID.VenusMagnum), Of(ItemID.NettleBurst), Of(ItemID.LeafBlower),
                     Of(ItemID.Seedler), Of(ItemID.FlowerPow), Of(ItemID.WaspGun)),
-                Of(ItemID.CopperCoin, 432432),
+                Of(ItemID.CopperCoin, 43_24_32),
                 Maybe(Of(ItemID.PlanteraMask)),
                 Maybe(Of(ItemID.Seedling)),
                 Maybe(Of(ItemID.TheAxe)),
@@ -434,7 +435,7 @@ namespace NoCheat.ItemSpawning
                     Of(ItemID.EyeoftheGolem), Of(ItemID.Picksaw), Of(ItemID.HeatRay), Of(ItemID.StaffofEarth),
                     Of(ItemID.GolemFist)),
                 Of(ItemID.BeetleHusk, 23),
-                Of(ItemID.CopperCoin, 432432),
+                Of(ItemID.CopperCoin, 43_24_32),
                 Maybe(Of(ItemID.GolemMask)),
                 Maybe(DeveloperSets)),
 
@@ -442,7 +443,7 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.ShrimpyTruffle),
                 One(Of(ItemID.Flairon), Of(ItemID.Tsunami), Of(ItemID.RazorbladeTyphoon), Of(ItemID.TempestStaff),
                     Of(ItemID.BubbleGun)),
-                Of(ItemID.CopperCoin, 28828),
+                Of(ItemID.CopperCoin, 2_88_28),
                 Maybe(Of(ItemID.DukeFishronMask)),
                 Maybe(Of(ItemID.FishronWings)),
                 Maybe(DeveloperSets)),

@@ -379,7 +379,7 @@ namespace NoCheat.ItemSpawning
                 // Clear out currency debits wherever possible.
                 foreach (var credit in _credits.Where(c => currencyDebit.ContainsKey(c.ItemId)))
                 {
-                    var payment = Math.Min(credit.StackSize, currencyDebit[credit.ItemId]);
+                    var payment = Math.Min(credit.StackSize, -currencyDebit[credit.ItemId]);
                     credit.StackSize -= payment;
                     currencyDebit[credit.ItemId] += payment;
                 }
