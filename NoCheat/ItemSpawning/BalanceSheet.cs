@@ -47,6 +47,8 @@ namespace NoCheat.ItemSpawning
             {
                 return;
             }
+
+            // Convert coins into copper coins. This simplifies the logic significantly.
             while (ItemID.SilverCoin <= transaction.ItemId && transaction.ItemId <= ItemID.PlatinumCoin)
             {
                 --transaction.ItemId;
@@ -182,6 +184,7 @@ namespace NoCheat.ItemSpawning
                 debit.StackSize += recipe.createItem.stack;
                 // Don't pay for alchemy recipes if the player is at an alchemy table, as the alchemy table provides
                 // a 33% chance of not using each ingredient.
+                // TODO: consider heuristic based approach? Probably not worth it.
                 if (!recipe.alchemy || !_player.TPlayer.alchemyTable)
                 {
                     foreach (var kvp in payments)
@@ -237,11 +240,13 @@ namespace NoCheat.ItemSpawning
                     else if (ItemID.Sets.ExoticPlantsForDyeTrade[i])
                     {
                         // Strange plants can turn into dye trader rewards.
+                        // TODO: maybe check if the player is talking to the dye trader.
                         _lootDrops[i] = LootDrop.DyeTraderRewards;
                     }
                     else if (ItemID.Sets.ExtractinatorMode[i] >= 0)
                     {
                         // Silt, slush, and desert fossils can turn into extractinator drops.
+                        // TODO: maybe check if the player is within range of an extractinator.
                         _lootDrops[i] = LootDrop.ExtractinatorDrops;
                     }
                     else
@@ -250,11 +255,13 @@ namespace NoCheat.ItemSpawning
                         if (item.questItem)
                         {
                             // Quest fish can turn into angler rewards.
+                            // TODO: maybe check if the player is actually able to turn in the quest fish.
                             _lootDrops[i] = LootDrop.AnglerRewards;
                         }
                         else if (item.bait > 0)
                         {
                             // Bait can turn into fishing drops.
+                            // TODO: maybe check if the player is actually fishing.
                             _lootDrops[i] = LootDrop.FishingDrops;
                         }
                     }
@@ -268,7 +275,6 @@ namespace NoCheat.ItemSpawning
             var debits = GetDebits(2).Concat(GetDebits(3)).ToList();
             foreach (var credit in credits.Where(c => _lootDrops.ContainsKey(c.ItemId)))
             {
-                Console.WriteLine("Processing credit " + credit.ItemId);
                 var lootDrop = _lootDrops[credit.ItemId];
                 while (credit.StackSize > 0 && lootDrop.IsContainedIn(debits))
                 {
