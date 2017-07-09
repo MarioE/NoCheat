@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using JetBrains.Annotations;
@@ -87,6 +88,18 @@ namespace NoCheat.ItemSpawning
                 player.SetData(BalanceSheetKey, balanceSheet);
             }
             return balanceSheet;
+        }
+
+        /// <summary>
+        /// Gets the sell value of the specified item.
+        /// </summary>
+        /// <param name="item">The item, which must not be <c>null</c>.</param>
+        /// <returns>The sell value.</returns>
+        public static int GetSellValue([NotNull] this Item item)
+        {
+            Debug.Assert(item != null, "Item must not be null.");
+
+            return item.value == 0 ? 0 : Math.Max(1, item.value / 5);
         }
 
         /// <summary>

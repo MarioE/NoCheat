@@ -298,15 +298,14 @@ namespace NoCheat.ItemSpawning
         {
             var credits = GetCredits(4);
             var debits = GetDebits(4);
-            // Treat credits of non-currency items with an active shop as sales.
-            foreach (var credit in credits.Where(
-                c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin && c.ItemId != ItemID.DefenderMedal))
+            // Treat credits of items with an active shop as sales.
+            foreach (var credit in credits.Where(c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin))
             {
                 var item = new Item();
                 item.SetDefaults(credit.ItemId);
                 item.Prefix(credit.Prefix);
 
-                var coinPayment = credit.StackSize * Math.Max(1, item.GetStoreValue() / 5);
+                var coinPayment = credit.StackSize * item.GetSellValue();
                 // Clear out coin debits wherever possible.
                 foreach (var debit in debits.Where(d => d.ItemId == ItemID.CopperCoin))
                 {
@@ -331,9 +330,8 @@ namespace NoCheat.ItemSpawning
                 }
             }
 
-            // Treat debits of non-currency items with an active shop as purchases.
-            foreach (var debit in debits.Where(
-                d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin && d.ItemId != ItemID.DefenderMedal))
+            // Treat debits of items with an active shop as purchases.
+            foreach (var debit in debits.Where(d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin))
             {
                 // Items can be purchased using defender medals, so we have to support both types of currencies here.
                 var currencyDebit = new Dictionary<int, int>
@@ -362,7 +360,7 @@ namespace NoCheat.ItemSpawning
                     item.SetDefaults(soldItem.NetId);
                     item.Prefix(soldItem.PrefixId);
                     // The purchase must have occurred using coins.
-                    currencyDebit[ItemID.CopperCoin] -= payment * Math.Max(1, item.GetStoreValue() / 5);
+                    currencyDebit[ItemID.CopperCoin] -= payment * item.GetSellValue();
 
                     // Stop if the debit has been cleared out so we don't unnecessarily check more sold items.
                     if (debit.StackSize >= 0)
