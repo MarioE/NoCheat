@@ -296,44 +296,26 @@ namespace NoCheat.ItemSpawning
         /// </summary>
         private void ProcessStage4()
         {
-            // We need to consider stage 3 debits along with stage 4 debits for similar reasons.
-            var debits = GetDebits(3).Concat(GetDebits(4)).ToList();
+            var credits = GetCredits(4);
+            var debits = GetDebits(4);
             // Treat credits of items with an active shop as sales.
-            foreach (var credit in GetCredits(4).Where(c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin))
+            foreach (var credit in credits.Where(c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin))
             {
                 var item = new Item();
                 item.SetDefaults(credit.ItemId);
                 item.Prefix(credit.Prefix);
 
                 var coinPayment = credit.StackSize * item.GetSellValue();
-                // Clear out coin debits wherever possible.
-                foreach (var debit in debits.Concat(GetDebits(3)).Where(d => d.ItemId == ItemID.CopperCoin))
-                {
-                    var payment = Math.Min(coinPayment, -debit.StackSize);
-                    coinPayment -= payment;
-                    debit.StackSize += payment;
-
-                    // Stop if the coins have been cleared out so we don't unnecessarily check more debits.
-                    if (coinPayment <= 0)
-                    {
-                        break;
-                    }
-                }
-
                 credit.SoldItems.Add(new NetItem(credit.ItemId, credit.StackSize, credit.Prefix));
                 credit.StackSize = 0;
-                // If not all of the coins were used, we need to add the remainder as a credit. This is because the
-                // player may have quickly purchased an item of equivalent value.
                 if (coinPayment > 0)
                 {
                     AddTransaction(new Transaction(ItemID.CopperCoin, coinPayment));
                 }
             }
 
-            // We need to consider stage 3 credits along with stage 4 credits for similar reasons.
-            var credits = GetCredits(3).Concat(GetCredits(4)).ToList();
             // Treat debits of items with an active shop as purchases.
-            foreach (var debit in GetDebits(4).Where(d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin))
+            foreach (var debit in debits.Where(d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin))
             {
                 // Items can be purchased using defender medals, so we have to support both types of currencies here.
                 var currencyDebit = new Dictionary<int, int>
@@ -383,21 +365,28 @@ namespace NoCheat.ItemSpawning
                     debit.StackSize = 0;
                 }
 
-                // Clear out currency debits wherever possible.
-                foreach (var credit in credits.Where(c => currencyDebit.ContainsKey(c.ItemId)))
-                {
-                    var payment = Math.Min(credit.StackSize, -currencyDebit[credit.ItemId]);
-                    credit.StackSize -= payment;
-                    currencyDebit[credit.ItemId] += payment;
-                }
-
-                // If not all of the coins could be accounted for, we need to add the remainder as a debit. This is
-                // because the player may have quickly sold an item of equivalent value. This reasoning doesn't apply
-                // for defender medals since items cannot be sold in that currency.
                 var coinDebit = currencyDebit[ItemID.CopperCoin];
                 if (coinDebit < 0)
                 {
                     AddTransaction(new Transaction(ItemID.CopperCoin, coinDebit));
+                }
+            }
+
+            // Clean up all currency-related transactions.
+            foreach (var debit in _debits.Where(
+                d => d.ItemId == ItemID.CopperCoin || d.ItemId == ItemID.DefenderMedal))
+            {
+                foreach (var credit in _credits.Where(c => c.ItemId == debit.ItemId))
+                {
+                    var payment = Math.Min(credit.StackSize, -debit.StackSize);
+                    credit.StackSize -= payment;
+                    debit.StackSize += payment;
+
+                    // Stop if the debit has been cleared out so we don't unnecessarily check more credits.
+                    if (credit.StackSize <= 0)
+                    {
+                        break;
+                    }
                 }
             }
         }

@@ -116,6 +116,7 @@ namespace NoCheat.ItemSpawning
         };
 
         private ILookup<int, Item> _buffLookup;
+        private ILookup<short, Item> _createNpcLookup;
         private ILookup<int, Item> _createTileLookup;
         private ILookup<int, Item> _createWallLookup;
         private bool _infiniteChests;
@@ -171,6 +172,7 @@ namespace NoCheat.ItemSpawning
                 _items.Add(item);
             }
             _buffLookup = _items.Where(i => i.buffType > 0).ToLookup(i => i.buffType);
+            _createNpcLookup = _items.Where(i => i.makeNPC > 0).ToLookup(i => i.makeNPC);
             _createTileLookup = _items.Where(i => i.createTile >= 0).ToLookup(i => i.createTile);
             _createWallLookup = _items.Where(i => i.createWall > 0).ToLookup(i => i.createWall);
             _paintLookup = _items.Where(i => i.paint > 0).ToLookup(i => i.paint);
@@ -253,6 +255,9 @@ namespace NoCheat.ItemSpawning
                     case PacketTypes.PaintWall:
                         OnPaintTileOrWall(player, reader);
                         return;
+                    case PacketTypes.ReleaseNPC:
+                        OnReleaseNpc(player, reader);
+                        return;
                     case PacketTypes.TeleportationPotion:
                         OnTeleportationPotion(player);
                         return;
@@ -311,6 +316,21 @@ namespace NoCheat.ItemSpawning
             {
                 // Debit the player for the item that corresponds to the object.
                 balanceSheet.AddTransaction(new Transaction(objectItem.type, -1));
+            }
+        }
+
+        private void OnReleaseNpc(TSPlayer player, BinaryReader reader)
+        {
+            reader.ReadInt32();
+            reader.ReadInt32();
+            var npcId = reader.ReadInt16();
+
+            var npcItem = _createNpcLookup[npcId].FirstOrDefault();
+            if (npcItem != null)
+            {
+                // Debit the player for the item that corresponds to the released NPC.
+                var balanceSheet = player.GetOrCreateBalanceSheet();
+                balanceSheet.AddTransaction(new Transaction(npcItem.type, -1));
             }
         }
 
