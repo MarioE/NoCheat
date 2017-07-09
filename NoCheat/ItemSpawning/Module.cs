@@ -71,21 +71,44 @@ namespace NoCheat.ItemSpawning
         };
 
         /// <summary>
+        ///     The list of projectile IDs that can also drop wooden arrows.
+        /// </summary>
+        private readonly List<int> _projectileIdsThatDropWoodenArrows = new List<int>
+        {
+            ProjectileID.FireArrow,
+            ProjectileID.CursedArrow,
+            ProjectileID.FrostburnArrow
+        };
+
+        /// <summary>
         ///     The mapping from projectile IDs to item drop IDs. This is used to credit a player for destroying a projectile that
         ///     drops items.
         /// </summary>
         private readonly Dictionary<int, int> _projectileIdToItemDropId = new Dictionary<int, int>
         {
+            [ProjectileID.WoodenArrowFriendly] = ItemID.WoodenArrow,
+            [ProjectileID.FireArrow] = ItemID.FlamingArrow,
             [ProjectileID.Shuriken] = ItemID.Shuriken,
             [ProjectileID.UnholyArrow] = ItemID.UnholyArrow,
             [ProjectileID.FallingStar] = ItemID.FallenStar,
             [ProjectileID.Bone] = ItemID.Bone,
+            [ProjectileID.SandBallGun] = ItemID.SandBlock,
             [ProjectileID.ThrowingKnife] = ItemID.ThrowingKnife,
             [ProjectileID.Glowstick] = ItemID.Glowstick,
             [ProjectileID.StickyGlowstick] = ItemID.StickyGlowstick,
             [ProjectileID.PoisonedKnife] = ItemID.PoisonedKnife,
+            [ProjectileID.EbonsandBallGun] = ItemID.EbonsandBlock,
+            [ProjectileID.PearlSandBallGun] = ItemID.PearlsandBlock,
             [ProjectileID.HolyArrow] = ItemID.HolyArrow,
+            [ProjectileID.CursedArrow] = ItemID.CursedArrow,
             [ProjectileID.BeachBall] = ItemID.BeachBall,
+            [ProjectileID.RopeCoil] = ItemID.Rope,
+            [ProjectileID.FrostburnArrow] = ItemID.FrostburnArrow,
+            [ProjectileID.CrimsandBallGun] = ItemID.CrimsandBlock,
+            [ProjectileID.BoneArrowFromMerchant] = ItemID.BoneArrow,
+            [ProjectileID.VineRopeCoil] = ItemID.VineRope,
+            [ProjectileID.SilkRopeCoil] = ItemID.SilkRope,
+            [ProjectileID.WebRopeCoil] = ItemID.WebRope,
             [ProjectileID.BouncyGlowstick] = ItemID.BouncyGlowstick,
             [ProjectileID.BoneJavelin] = ItemID.BoneJavelin,
             [ProjectileID.BoneDagger] = ItemID.BoneDagger
@@ -342,9 +365,17 @@ namespace NoCheat.ItemSpawning
                 Main.projectile.FirstOrDefault(p => p.active && p.identity == identity && p.owner == player.Index);
             if (projectile != null && _projectileIdToItemDropId.TryGetValue(projectile.type, out var itemId))
             {
-                // Credit the player for the item that can be created when the projectile is removed.
+                // Credit the player for the item that can be created when the projectile is removed. Rope coils need to
+                // be handled differently in that up to 10 items may drop.
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(new Transaction(itemId));
+                balanceSheet.AddTransaction(new Transaction(itemId, projectile.aiStyle == 35 ? 10 : 1));
+
+                // For certain projectiles, we may need to defensively credit a wooden arrow as they may revert back to
+                // wooden arrows.
+                if (_projectileIdsThatDropWoodenArrows.Contains(projectile.type))
+                {
+                    balanceSheet.AddTransaction(new Transaction(ItemID.WoodenArrow));
+                }
             }
         }
 
