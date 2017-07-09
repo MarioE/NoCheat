@@ -296,10 +296,10 @@ namespace NoCheat.ItemSpawning
         /// </summary>
         private void ProcessStage4()
         {
-            var credits = GetCredits(4);
-            var debits = GetDebits(4);
+            // We need to consider stage 3 debits along with stage 4 debits for similar reasons.
+            var debits = GetDebits(3).Concat(GetDebits(4)).ToList();
             // Treat credits of items with an active shop as sales.
-            foreach (var credit in credits.Where(c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin))
+            foreach (var credit in GetCredits(4).Where(c => c.ActiveShop != null && c.ItemId != ItemID.CopperCoin))
             {
                 var item = new Item();
                 item.SetDefaults(credit.ItemId);
@@ -307,7 +307,7 @@ namespace NoCheat.ItemSpawning
 
                 var coinPayment = credit.StackSize * item.GetSellValue();
                 // Clear out coin debits wherever possible.
-                foreach (var debit in debits.Where(d => d.ItemId == ItemID.CopperCoin))
+                foreach (var debit in debits.Concat(GetDebits(3)).Where(d => d.ItemId == ItemID.CopperCoin))
                 {
                     var payment = Math.Min(coinPayment, -debit.StackSize);
                     coinPayment -= payment;
@@ -330,8 +330,10 @@ namespace NoCheat.ItemSpawning
                 }
             }
 
+            // We need to consider stage 3 credits along with stage 4 credits for similar reasons.
+            var credits = GetCredits(3).Concat(GetCredits(4)).ToList();
             // Treat debits of items with an active shop as purchases.
-            foreach (var debit in debits.Where(d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin))
+            foreach (var debit in GetDebits(4).Where(d => d.ActiveShop != null && d.ItemId != ItemID.CopperCoin))
             {
                 // Items can be purchased using defender medals, so we have to support both types of currencies here.
                 var currencyDebit = new Dictionary<int, int>
@@ -382,7 +384,7 @@ namespace NoCheat.ItemSpawning
                 }
 
                 // Clear out currency debits wherever possible.
-                foreach (var credit in _credits.Where(c => currencyDebit.ContainsKey(c.ItemId)))
+                foreach (var credit in credits.Where(c => currencyDebit.ContainsKey(c.ItemId)))
                 {
                     var payment = Math.Min(credit.StackSize, -currencyDebit[credit.ItemId]);
                     credit.StackSize -= payment;

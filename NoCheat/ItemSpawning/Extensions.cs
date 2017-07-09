@@ -99,7 +99,7 @@ namespace NoCheat.ItemSpawning
         {
             Debug.Assert(item != null, "Item must not be null.");
 
-            return item.value == 0 ? 0 : Math.Max(1, item.value / 5);
+            return item.value <= 0 ? 0 : Math.Max(1, item.value / 5);
         }
 
         /// <summary>
