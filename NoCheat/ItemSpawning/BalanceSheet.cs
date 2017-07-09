@@ -258,12 +258,6 @@ namespace NoCheat.ItemSpawning
                             // TODO: maybe check if the player is actually able to turn in the quest fish.
                             _lootDrops[i] = LootDrop.AnglerRewards;
                         }
-                        else if (item.bait > 0)
-                        {
-                            // Bait can turn into fishing drops.
-                            // TODO: maybe check if the player is actually fishing.
-                            _lootDrops[i] = LootDrop.FishingDrops;
-                        }
                     }
                 }
             }
@@ -281,6 +275,14 @@ namespace NoCheat.ItemSpawning
                     lootDrop.Apply(debits);
                     --credit.StackSize;
                 }
+            }
+
+            // Bait may not be used when fishing, so we just clear out fishing drops if necessary.
+            // TODO: rework this. This is a bandaid.
+            var fishingDrops = LootDrop.FishingDrops;
+            if (fishingDrops.IsContainedIn(debits))
+            {
+                fishingDrops.Apply(debits);
             }
         }
 
