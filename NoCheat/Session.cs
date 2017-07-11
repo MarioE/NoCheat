@@ -61,6 +61,9 @@ namespace NoCheat
             Debug.Assert(reason != null, "Reason must not be null.");
 
             _infractions.Add(new Infraction(points, DateTime.UtcNow + duration, reason));
+
+            TShock.Log.ConsoleInfo($"[NoCheat] {_player.Name} was given a {points} point infraction for {reason}.");
+            _player.SendWarningMessage($"You were given a {points} point infraction for {reason}.");
             Save();
         }
 
@@ -82,7 +85,7 @@ namespace NoCheat
                 _player.Disconnect($"Banned: {config.BanMessage}");
                 TSPlayer.All.SendInfoMessage($"{_player.Name} was banned for '{config.BanMessage}'.");
                 TShock.Bans.AddBan(_player.IP, _player.Name, _player.UUID, config.BanMessage,
-                    expiration: DateTime.UtcNow.Add(config.BanDuration).ToString("s"));
+                                   expiration: DateTime.UtcNow.Add(config.BanDuration).ToString("s"));
             }
         }
 

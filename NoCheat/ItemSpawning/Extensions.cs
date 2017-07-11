@@ -1,8 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using JetBrains.Annotations;
+using NoCheat.ItemSpawning.Accounting;
 using Terraria;
 using Terraria.ID;
 using TShockAPI;
@@ -14,10 +14,11 @@ namespace NoCheat.ItemSpawning
     /// </summary>
     public static class Extensions
     {
-        private const string ActiveShopKey = "NoCheat_ItemSpawning_Shop";
         private const string BalanceSheetKey = "NoCheat_ItemSpawning_BalanceSheet";
         private const string ChestItemKey = "NoCheat_ItemSpawning_ChestItem";
-        private const string SoldItemsKey = "NoCheat_ItemSpawning_SoldItems";
+        private const string DestroyedProjectileIdKey = "NoCheat_ItemSpawning_DestroyedProjectileId";
+        private const string ShopKey = "NoCheat_ItemSpawning_Shop";
+        private const string WeaponRackItemIdKey = "NoCheat_ItemSpawning_WeaponRackItemId";
 
         private static readonly int[] FragmentItemIds =
         {
@@ -44,25 +45,12 @@ namespace NoCheat.ItemSpawning
         };
 
         /// <summary>
-        ///     Gets the active shop. This is a mechanism for retrieving the shop that a player saw when speaking to an NPC.
-        /// </summary>
-        /// <param name="player">The player, which must not be <c>null</c>.</param>
-        /// <returns>The active shop, which may be <c>null</c>.</returns>
-        [CanBeNull]
-        public static Chest GetActiveShop([NotNull] this TSPlayer player)
-        {
-            Debug.Assert(player != null, "Player must not be null.");
-
-            return player.GetData<Chest>(ActiveShopKey);
-        }
-
-        /// <summary>
-        ///     Gets the chest item at the specified index. This is a mechanism for retrieving the items for a chest sent to a
-        ///     client.
+        ///     Gets the chest item at the specified index.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
         /// <param name="index">The index, which must be valid.</param>
         /// <returns>The chest item.</returns>
+        [Pure]
         public static NetItem GetChestItem([NotNull] this TSPlayer player, int index)
         {
             Debug.Assert(player != null, "Player must not be null.");
@@ -72,7 +60,19 @@ namespace NoCheat.ItemSpawning
         }
 
         /// <summary>
-        ///     Gets or creates the balance sheet for the player.
+        ///     Gets the destroyed projectile ID for the specified player.
+        /// </summary>
+        /// <param name="player">The player, which must not be <c>null</c>.</param>
+        /// <returns>The destroyed projectile ID.</returns>
+        public static int GetDestroyedProjectileId([NotNull] this TSPlayer player)
+        {
+            Debug.Assert(player != null, "Player must not be null.");
+
+            return player.GetData<int>(DestroyedProjectileIdKey);
+        }
+
+        /// <summary>
+        ///     Gets or creates the balance sheet for the specified player.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
         /// <returns>The balance sheet.</returns>
@@ -91,38 +91,27 @@ namespace NoCheat.ItemSpawning
         }
 
         /// <summary>
-        /// Gets the sell value of the specified item.
-        /// </summary>
-        /// <param name="item">The item, which must not be <c>null</c>.</param>
-        /// <returns>The sell value.</returns>
-        public static int GetSellValue([NotNull] this Item item)
-        {
-            Debug.Assert(item != null, "Item must not be null.");
-
-            return item.value <= 0 ? 0 : Math.Max(1, item.value / 5);
-        }
-
-        /// <summary>
-        ///     Gets the sold items. This is a mechanism for keeping track of the items that a player has potentially sold to an
-        ///     NPC.
+        ///     Gets the shop for the specified player.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
-        /// <returns>The sold items, which may be <c>null</c>.</returns>
+        /// <returns>The active shop, which may be <c>null</c>.</returns>
         [CanBeNull]
-        public static List<NetItem> GetSoldItems([NotNull] this TSPlayer player)
+        [Pure]
+        public static Chest GetShop([NotNull] this TSPlayer player)
         {
             Debug.Assert(player != null, "Player must not be null.");
 
-            return player.GetData<List<NetItem>>(SoldItemsKey);
+            return player.GetData<Chest>(ShopKey);
         }
 
         /// <summary>
-        ///     Gets the possible substitute IDs for the specified ingredient ID.
+        ///     Gets the possible substitute IDs for the specified ingredient ID in the recipe.
         /// </summary>
         /// <param name="recipe">The recipe, which must not be <c>null</c>.</param>
         /// <param name="ingredientId">The ingredient ID, which must valid for the recipe.</param>
         /// <returns>The possible substitute IDs.</returns>
         [NotNull]
+        [Pure]
         public static IEnumerable<int> GetSubstituteIds([NotNull] this Recipe recipe, int ingredientId)
         {
             Debug.Assert(recipe != null, "Recipe must not be null.");
@@ -160,19 +149,19 @@ namespace NoCheat.ItemSpawning
         }
 
         /// <summary>
-        ///     Sets the active shop. This is a mechanism for storing the shop that a player sees when speaking to an NPC.
+        ///     Gets the weapon rack item ID for the specified player.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
-        /// <param name="shop">The shop.</param>
-        public static void SetActiveShop([NotNull] this TSPlayer player, [CanBeNull] Chest shop)
+        /// <returns>The weapon rack item ID.</returns>
+        public static int GetWeaponRackItemId([NotNull] this TSPlayer player)
         {
             Debug.Assert(player != null, "Player must not be null.");
 
-            player.SetData(ActiveShopKey, shop);
+            return player.GetData<int>(WeaponRackItemIdKey);
         }
 
         /// <summary>
-        ///     Sets the chest item at the specified index. This is a mechanism for storing the items for a chest sent to a client.
+        ///     Sets the chest item at the specified index.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
         /// <param name="index">The index, which must be valid.</param>
@@ -186,17 +175,39 @@ namespace NoCheat.ItemSpawning
         }
 
         /// <summary>
-        ///     Sets the sold items. This is a mechanism for keeping track of the items that a player has potentially sold to an
-        ///     NPC.
+        ///     Sets the destroyed projectile ID for the specified player.
         /// </summary>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
-        /// <param name="items">The sold items, which must not be <c>null</c>.</param>
-        public static void SetSoldItems([NotNull] this TSPlayer player, [NotNull] List<NetItem> items)
+        /// <param name="destroyedProjectileId">The destroyed projectile ID.</param>
+        public static void SetDestroyedProjectileId([NotNull] this TSPlayer player, int destroyedProjectileId)
         {
             Debug.Assert(player != null, "Player must not be null.");
-            Debug.Assert(items != null, "Items must not be null.");
 
-            player.SetData(SoldItemsKey, items);
+            player.SetData(DestroyedProjectileIdKey, destroyedProjectileId);
+        }
+
+        /// <summary>
+        ///     Sets the shop for the specified player.
+        /// </summary>
+        /// <param name="player">The player, which must not be <c>null</c>.</param>
+        /// <param name="shop">The shop.</param>
+        public static void SetShop([NotNull] this TSPlayer player, [CanBeNull] Chest shop)
+        {
+            Debug.Assert(player != null, "Player must not be null.");
+
+            player.SetData(ShopKey, shop);
+        }
+
+        /// <summary>
+        ///     Sets the weapon rack item ID for the specified player.
+        /// </summary>
+        /// <param name="player">The player, which must not be <c>null</c>.</param>
+        /// <param name="weaponRackItemId">The weapon rack item ID.</param>
+        public static void SetWeaponRackItemId([NotNull] this TSPlayer player, int weaponRackItemId)
+        {
+            Debug.Assert(player != null, "Player must not be null.");
+
+            player.SetData(WeaponRackItemIdKey, weaponRackItemId);
         }
     }
 }

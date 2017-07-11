@@ -67,12 +67,15 @@
   <ItemGroup>
     <Compile Include="Extensions.cs" />
     <Compile Include="Infraction.cs" />
-    <Compile Include="ItemSpawning\BalanceSheet.cs" />
+    <Compile Include="ItemSpawning\Accounting\BalanceSheet.cs" />
+    <Compile Include="ItemSpawning\Accounting\PipelineStage.cs" />
+    <Compile Include="ItemSpawning\Accounting\Transaction.cs" />
+    <Compile Include="ItemSpawning\Accounting\TransactionInfo.cs" />
+    <Compile Include="ItemSpawning\Commands.cs" />
     <Compile Include="ItemSpawning\Config.cs" />
     <Compile Include="ItemSpawning\Extensions.cs" />
-    <Compile Include="ItemSpawning\LootDrop.cs" />
+    <Compile Include="ItemSpawning\ItemConversion.cs" />
     <Compile Include="ItemSpawning\Module.cs" />
-    <Compile Include="ItemSpawning\Transaction.cs" />
     <Compile Include="NoCheatModule.cs" />
     <Compile Include="NoCheatPlugin.cs" />
     <Compile Include="NoCheatConfig.cs" />

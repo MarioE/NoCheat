@@ -18,29 +18,29 @@ namespace NoCheat
         public static NoCheatConfig Instance { get; internal set; } = new NoCheatConfig();
 
         /// <summary>
-        ///     Gets the ban duration.
+        ///     Gets or sets the ban duration.
         /// </summary>
         [JsonProperty(Order = 1)]
-        public TimeSpan BanDuration { get; private set; } = TimeSpan.FromDays(1);
+        public TimeSpan BanDuration { get; set; } = TimeSpan.FromDays(1);
 
         /// <summary>
-        ///     Gets the ban message.
+        ///     Gets or sets the ban message.
         /// </summary>
         [JsonProperty(Order = 2)]
         [NotNull]
-        public string BanMessage { get; private set; } = "Cheating";
+        public string BanMessage { get; set; } = "Cheating";
 
         /// <summary>
-        ///     Gets the ItemSpawning module configuration.
+        ///     Gets or sets the ItemSpawning module configuration.
         /// </summary>
         [JsonProperty(Order = 3)]
         [NotNull]
-        public Config ItemSpawning { get; private set; } = new Config();
+        public Config ItemSpawning { get; set; } = new Config();
 
         /// <summary>
-        ///     Gets the number of infraction points required for a temporary ban to be issued.
+        ///     Gets or sets the number of infraction points required for a temporary ban to be issued.
         /// </summary>
         [JsonProperty(Order = 0)]
-        public int PointThreshold { get; private set; } = 1000;
+        public int PointThreshold { get; set; } = 1000;
     }
 }
