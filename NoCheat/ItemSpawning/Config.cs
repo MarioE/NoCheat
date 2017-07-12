@@ -45,7 +45,7 @@ namespace NoCheat.ItemSpawning
         ///     Gets or sets the grace period for transactions being simplified.
         /// </summary>
         [JsonProperty(Order = 1)]
-        public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(0.02);
+        public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(0.25);
 
         /// <summary>
         ///     Gets the infraction point overrides, keyed by item ID.

@@ -35,7 +35,8 @@ namespace NoCheat.ItemSpawning
                 Of(ItemID.Yoraiz0rDarkness)),
             All(Of(ItemID.SkiphsHelm), Of(ItemID.SkiphsShirt), Of(ItemID.SkiphsPants), Of(ItemID.SkiphsWings),
                 Of(ItemID.DevDye, 4, 4)),
-            All(Of(ItemID.LokisHelm), Of(ItemID.LokisShirt), Of(ItemID.LokisPants), Of(ItemID.LokisWings)),
+            All(Of(ItemID.LokisHelm), Of(ItemID.LokisShirt), Of(ItemID.LokisPants), Of(ItemID.LokisWings),
+                Of(ItemID.LokisDye, 4, 4)),
             All(Of(ItemID.ArkhalisHat), Of(ItemID.ArkhalisShirt), Of(ItemID.ArkhalisPants), Of(ItemID.ArkhalisWings)),
             All(Of(ItemID.LeinforsHat), Of(ItemID.LeinforsShirt), Of(ItemID.LeinforsPants), Of(ItemID.LeinforsWings),
                 Of(ItemID.LeinforsAccessory, 4, 4)));
@@ -252,11 +253,12 @@ namespace NoCheat.ItemSpawning
                 Maybe(Of(ItemID.HealingPotion)),
                 Maybe(Of(ItemID.CopperCoin, 1, 6_99_99))),
 
-            // Herb bags can run their drops either 3 or 4 times.
+            // Herb bags can run their drops 2 to 5 times.
             [ItemID.HerbBag] = All(
                 HerbBagDrops,
                 HerbBagDrops,
-                HerbBagDrops,
+                Maybe(HerbBagDrops),
+                Maybe(HerbBagDrops),
                 Maybe(HerbBagDrops)),
 
             [ItemID.CorruptFishingCrate] = All(

@@ -12,20 +12,42 @@ namespace NoCheat.ItemSpawning.Accounting
     public sealed class Transaction
     {
         /// <summary>
-        ///     Initializes a new instance of the <see cref="Transaction" /> class with the specified item ID, stack size, prefix
-        ///     ID, and player.
+        ///     Represents the mouse slot.
         /// </summary>
+        public const int MouseSlot = 58;
+
+        /// <summary>
+        ///     Represents the stack update slot.
+        /// </summary>
+        public const int StackUpdateSlot = -2;
+
+        /// <summary>
+        ///     Represents the trash can slot.
+        /// </summary>
+        public const int TrashCanSlot = 179;
+
+        /// <summary>
+        ///     Represents the world slot.
+        /// </summary>
+        public const int WorldSlot = -1;
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="Transaction" /> class with the specified slot, item ID, stack size,
+        ///     prefix ID, and player.
+        /// </summary>
+        /// <param name="slot">The slot index that the transaction occurred in.</param>
         /// <param name="itemId">The item ID, which must be non-negative and in range.</param>
         /// <param name="stackSize">The stack size.</param>
         /// <param name="prefixId">The prefix ID, which must be in range.</param>
         /// <param name="player">The player, which must not be <c>null</c>.</param>
-        public Transaction(int itemId, int stackSize, byte prefixId, TSPlayer player)
+        public Transaction(int slot, int itemId, int stackSize, byte prefixId, TSPlayer player)
         {
             Debug.Assert(itemId >= 0, "Item ID must be non-negative.");
             Debug.Assert(itemId < ItemID.Count, "Item ID must be in range.");
             Debug.Assert(prefixId < PrefixID.Count, "Prefix ID must be in range.");
             Debug.Assert(player != null, "Player must not be null.");
 
+            Slot = slot;
             ItemId = itemId;
             StackSize = stackSize;
             PrefixId = prefixId;
@@ -38,7 +60,7 @@ namespace NoCheat.ItemSpawning.Accounting
         public TransactionInfo Info { get; }
 
         /// <summary>
-        ///     Gets or sets the item ID.
+        ///     Gets the item ID.
         /// </summary>
         public int ItemId { get; }
 
@@ -46,6 +68,11 @@ namespace NoCheat.ItemSpawning.Accounting
         ///     Gets the prefix ID.
         /// </summary>
         public byte PrefixId { get; }
+
+        /// <summary>
+        ///     Gets the slot.
+        /// </summary>
+        public int Slot { get; }
 
         /// <summary>
         ///     Gets the stack size.
@@ -74,7 +101,7 @@ namespace NoCheat.ItemSpawning.Accounting
         public override string ToString()
         {
             var item = ToItem();
-            return $"{item.AffixName()} x{item.stack}";
+            return $"{item.AffixName()} x{item.stack} (slot {Slot})";
         }
     }
 }

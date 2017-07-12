@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using JetBrains.Annotations;
+using NoCheat.ItemSpawning.Accounting;
 using Terraria;
 using Terraria.ID;
 using TerrariaApi.Server;
@@ -15,16 +17,15 @@ namespace NoCheat.ItemSpawning
     /// <summary>
     ///     Represents the module that prevents item spawning.
     /// </summary>
+    // TODO: figure out why getting a bunch of loot can create false positives
+    // TODO: fix false positives for rope
+    // TODO: fix false positives for projectiles dropping themselves (need to use heuristic)
+    // TODO: fix ammo checking (need to use heuristic)
     // TODO: handle buffs
     // TODO: handle hp healing
     // TODO: handle mp healing
     public sealed class Module : NoCheatModule
     {
-        private static readonly int[] GrassIds =
-        {
-            TileID.Plants, TileID.CorruptPlants, TileID.JunglePlants, TileID.HallowedPlants, TileID.FleshWeeds
-        };
-
         private static readonly Dictionary<int, int> NebulaBuffIdToItemId = new Dictionary<int, int>
         {
             [BuffID.NebulaUpLife1] = ItemID.NebulaPickup2,
@@ -126,11 +127,6 @@ namespace NoCheat.ItemSpawning
             [NPCID.DukeFishron] = ItemID.TruffleWorm
         };
 
-        private static readonly int[] TallGrassIds =
-        {
-            TileID.Plants2, TileID.JunglePlants2, TileID.HallowedPlants2
-        };
-
         private ILookup<int, Item> _bodySlotLookup;
         private Commands _commands;
         private ILookup<short, Item> _createNpcLookup;
@@ -219,9 +215,6 @@ namespace NoCheat.ItemSpawning
                     case PacketTypes.PlayerSlot:
                         OnUpdateInventory(player, reader);
                         return;
-                    case PacketTypes.PlayerHp:
-                        OnUpdatePlayerHp(player, reader);
-                        return;
                     case PacketTypes.Tile:
                         OnUpdateTile(player, reader);
                         return;
@@ -243,13 +236,13 @@ namespace NoCheat.ItemSpawning
                         OnRemoveProjectile(player, reader);
                         return;
                     case PacketTypes.ChestItem:
+                        OnUpdateChestItem(player, reader);
+                        return;
+                    case PacketTypes.TileKill:
                         OnUpdateChest(player, reader);
                         return;
                     case PacketTypes.NpcTalk:
                         args.Handled = OnTalkNpc(player, reader);
-                        return;
-                    case PacketTypes.PlayerMana:
-                        OnUpdatePlayerMp(player, reader);
                         return;
                     case PacketTypes.ChestUnlock:
                         OnUnlockObject(player, reader);
@@ -263,9 +256,6 @@ namespace NoCheat.ItemSpawning
                         return;
                     case PacketTypes.ReleaseNPC:
                         OnReleaseNpc(player, reader);
-                        return;
-                    case PacketTypes.TeleportationPotion:
-                        OnTeleportationPotion(player);
                         return;
                     case PacketTypes.PlaceObject:
                         OnPlaceObject(player, reader);
@@ -306,7 +296,7 @@ namespace NoCheat.ItemSpawning
             if (paintItem != null)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(paintItem.type, -1);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, paintItem.type, -1);
             }
         }
 
@@ -321,7 +311,7 @@ namespace NoCheat.ItemSpawning
             if (objectItem != null)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(objectItem.type, -1);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, objectItem.type, -1);
             }
         }
 
@@ -335,7 +325,7 @@ namespace NoCheat.ItemSpawning
             if (npcItem != null)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(npcItem.type, -1);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, npcItem.type, -1);
             }
         }
 
@@ -350,12 +340,12 @@ namespace NoCheat.ItemSpawning
                 return;
             }
 
-            player.SetDestroyedProjectileId(projectile.type);
-            // Handle rope coils, since they can create tiles.
+            // Handle rope coils, since they can actually create tiles.
             if (projectile.aiStyle == 35)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(RopeCoilProjectileIdToRopeId[projectile.type], 10);
+                balanceSheet.AddTransaction(
+                    player.TPlayer.selectedItem, RopeCoilProjectileIdToRopeId[projectile.type], 10);
             }
             // Handle fishing poles being reeled in. Note that we don't actually check what item is on the hook, as that
             // can be done in a separate module.
@@ -377,7 +367,7 @@ namespace NoCheat.ItemSpawning
                     stackSize = player.TPlayer.FishingLevel() / 4 + 31;
                 }
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(itemId, stackSize);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, itemId, stackSize);
             }
         }
 
@@ -413,15 +403,15 @@ namespace NoCheat.ItemSpawning
                 if (armorItem != null)
                 {
                     var balanceSheet = player.GetOrCreateBalanceSheet();
-                    balanceSheet.AddTransaction(armorItem.type, -1);
+                    balanceSheet.AddTransaction(Transaction.WorldSlot, armorItem.type, -1);
                 }
             }
             else if (tile.Type == TileID.WeaponsRack)
             {
                 var baseFrameX = tile.FrameX - 5000 * (tile.FrameX / 5000);
                 // When placing a weapon an a weapon rack, the client will send two SendTileSquare packets; the first
-                // gives the item ID, and the second gives the item prefix. We know which one is the item ID since it is
-                // always over 100.
+                // gives the item ID, and the second gives the item prefix. We know which one is the item ID since the
+                // base frameX is over 100.
                 if (baseFrameX > 100)
                 {
                     player.SetWeaponRackItemId(baseFrameX - 100);
@@ -429,7 +419,8 @@ namespace NoCheat.ItemSpawning
                 else
                 {
                     var balanceSheet = player.GetOrCreateBalanceSheet();
-                    balanceSheet.AddTransaction(player.GetWeaponRackItemId(), -1, (byte)baseFrameX);
+                    var weaponRackItemId = player.GetWeaponRackItemId();
+                    balanceSheet.AddTransaction(Transaction.WorldSlot, weaponRackItemId, -1, (byte)baseFrameX);
                 }
             }
         }
@@ -460,7 +451,7 @@ namespace NoCheat.ItemSpawning
         private void OnStartOldOnesInvasion(TSPlayer player)
         {
             var balanceSheet = player.GetOrCreateBalanceSheet();
-            balanceSheet.AddTransaction(ItemID.DD2ElderCrystal, -1);
+            balanceSheet.AddTransaction(Transaction.WorldSlot, ItemID.DD2ElderCrystal, -1);
         }
 
         private void OnStrikeNpc(TSPlayer player)
@@ -468,14 +459,14 @@ namespace NoCheat.ItemSpawning
             if (player.TPlayer.coins)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.ForgetTransaction(ItemID.CopperCoin, -10_00_00);
+                balanceSheet.ForgetDebit(ItemID.CopperCoin, 10_00_00);
             }
             if (player.TPlayer.setNebula)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
                 foreach (var itemId in NebulaBuffIdToItemId.Values)
                 {
-                    if (balanceSheet.ForgetTransaction(itemId, -1))
+                    if (balanceSheet.ForgetDebit(itemId, 1))
                     {
                         break;
                     }
@@ -490,7 +481,7 @@ namespace NoCheat.ItemSpawning
             if (SummonIdToItemId.TryGetValue(summonId, out var itemId))
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(itemId, -1);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, itemId, -1);
             }
         }
 
@@ -556,12 +547,6 @@ namespace NoCheat.ItemSpawning
             return true;
         }
 
-        private void OnTeleportationPotion(TSPlayer player)
-        {
-            var balanceSheet = player.GetOrCreateBalanceSheet();
-            balanceSheet.AddTransaction(ItemID.TeleportationPotion, -1);
-        }
-
         private void OnUnlockObject(TSPlayer player, BinaryReader reader)
         {
             var unlockType = reader.ReadByte();
@@ -570,7 +555,7 @@ namespace NoCheat.ItemSpawning
                 var x = reader.ReadInt16();
                 var y = reader.ReadInt16();
                 var tile = Main.tile[x, y];
-                // Shadow chests don't consume the shadow key.
+                // Shadow chests don't consume the shadow key, so we shouldn't debit it.
                 if (tile.frameX >= 144 && tile.frameX <= 178)
                 {
                     return;
@@ -583,16 +568,45 @@ namespace NoCheat.ItemSpawning
                 }
 
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(keyId, -1);
+                balanceSheet.AddTransaction(-1, keyId, -1);
             }
             else if (unlockType == 2)
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(ItemID.TempleKey, -1);
+                balanceSheet.AddTransaction(-1, ItemID.TempleKey, -1);
             }
         }
 
         private void OnUpdateChest(TSPlayer player, BinaryReader reader)
+        {
+            var action = reader.ReadByte();
+            reader.ReadInt16();
+            reader.ReadInt16();
+            var style = reader.ReadInt16();
+
+            var containerId = -1;
+            if (action == 0)
+            {
+                containerId = TileID.Containers;
+            }
+            else if (action == 2)
+            {
+                containerId = TileID.Dressers;
+            }
+            else if (action == 4)
+            {
+                containerId = TileID.Containers2;
+            }
+
+            var containerItem = _createTileLookup[containerId].FirstOrDefault(i => i.placeStyle == style);
+            if (containerItem != null)
+            {
+                var balanceSheet = player.GetOrCreateBalanceSheet();
+                balanceSheet.AddTransaction(Transaction.WorldSlot, containerItem.type, -1);
+            }
+        }
+
+        private void OnUpdateChestItem(TSPlayer player, BinaryReader reader)
         {
             var chestIndex = reader.ReadInt16();
             var itemIndex = reader.ReadByte();
@@ -614,12 +628,12 @@ namespace NoCheat.ItemSpawning
             var balanceSheet = player.GetOrCreateBalanceSheet();
             if (item.NetId == itemId)
             {
-                balanceSheet.AddTransaction(item.NetId, item.Stack - stackSize, item.PrefixId);
+                balanceSheet.AddTransaction(1000 + itemIndex, item.NetId, item.Stack - stackSize, item.PrefixId);
             }
             else
             {
-                balanceSheet.AddTransaction(item.NetId, item.Stack, item.PrefixId);
-                balanceSheet.AddTransaction(itemId, -stackSize, prefix);
+                balanceSheet.AddTransaction(1000 + itemIndex, item.NetId, item.Stack, item.PrefixId);
+                balanceSheet.AddTransaction(1000 + itemIndex, itemId, -stackSize, prefix);
             }
         }
 
@@ -640,16 +654,16 @@ namespace NoCheat.ItemSpawning
             var balanceSheet = player.GetOrCreateBalanceSheet();
             if (item.type == itemId)
             {
-                balanceSheet.AddTransaction(item.type, item.stack - stackSize, item.prefix);
+                balanceSheet.AddTransaction(slot, item.type, item.stack - stackSize, item.prefix);
             }
             else
             {
                 // Don't credit the player for a trashed item that gets overriden.
-                if (slot != 179 || itemId == 0)
+                if (slot != Transaction.TrashCanSlot || itemId == 0)
                 {
-                    balanceSheet.AddTransaction(item.type, item.stack, item.prefix);
+                    balanceSheet.AddTransaction(slot, item.type, item.stack, item.prefix);
                 }
-                balanceSheet.AddTransaction(itemId, -stackSize, prefix);
+                balanceSheet.AddTransaction(slot, itemId, -stackSize, prefix);
             }
         }
 
@@ -659,29 +673,40 @@ namespace NoCheat.ItemSpawning
             reader.ReadVector2();
             reader.ReadVector2();
             var stackSize = reader.ReadInt16();
-            var prefix = reader.ReadByte();
+            var prefixId = reader.ReadByte();
             reader.ReadByte();
             var itemId = reader.ReadInt16();
 
-            var balanceSheet = player.GetOrCreateBalanceSheet();
             if (itemIndex == Main.maxItems)
             {
-                var projectileId = player.GetDestroyedProjectileId();
-                // Prevent destroyed projectiles from being treated as item drops.
-                if (stackSize == 1 &&
-                    (ProjectileIdToItemDropId.Get(projectileId) == itemId ||
-                     ProjectileIdsDroppingWoodenArrows.Contains(projectileId) && itemId == ItemID.WoodenArrow))
+                // Ignore hay created by the sickle, up to a certain stack size.
+                if (player.SelectedItem.type == ItemID.Sickle && itemId == ItemID.Hay && stackSize <= 4)
                 {
-                    player.SetDestroyedProjectileId(0);
                     return;
                 }
 
-                balanceSheet.AddTransaction(itemId, -stackSize, prefix);
+                var balanceSheet = player.GetOrCreateBalanceSheet();
+                balanceSheet.AddTransaction(Transaction.WorldSlot, itemId, -stackSize, prefixId);
             }
             else
             {
                 var item = Main.item[itemIndex];
-                balanceSheet.AddTransaction(item.type, item.stack - stackSize, item.prefix);
+                var balanceSheet = player.GetOrCreateBalanceSheet();
+                var netItem = new NetItem(item.type, item.stack - stackSize, item.prefix);
+                var lastNetItem = player.GetLastUpdatedItem();
+                // We need to specially detect if the client is stacking items, and adjust appropriately.
+                if (netItem.NetId == lastNetItem.NetId && netItem.Stack == -lastNetItem.Stack && netItem.Stack > 0 &&
+                    netItem.PrefixId == lastNetItem.PrefixId)
+                {
+                    Debug.WriteLine($"DEBUG: Stack update at {itemIndex}");
+                    balanceSheet.AddTransaction(Transaction.StackUpdateSlot, item.type, item.stack - stackSize,
+                                                item.prefix);
+                }
+                else
+                {
+                    balanceSheet.AddTransaction(Transaction.WorldSlot, item.type, item.stack - stackSize, item.prefix);
+                }
+                player.SetLastUpdatedItem(netItem);
             }
         }
 
@@ -693,7 +718,7 @@ namespace NoCheat.ItemSpawning
             var prefixId = reader.ReadByte();
 
             var balanceSheet = player.GetOrCreateBalanceSheet();
-            balanceSheet.AddTransaction(itemId, -1, prefixId);
+            balanceSheet.AddTransaction(Transaction.WorldSlot, itemId, -1, prefixId);
         }
 
         private void OnUpdateNebula(TSPlayer player, BinaryReader reader)
@@ -705,43 +730,8 @@ namespace NoCheat.ItemSpawning
             if (NebulaBuffIdToItemId.TryGetValue(buffId, out var itemId))
             {
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                // We give a debit of 2 since the player earns a credit of 2 from picking up the nebula booster.
-                balanceSheet.AddTransaction(itemId, -2);
-            }
-        }
-
-        private void OnUpdatePlayerHp(TSPlayer player, BinaryReader reader)
-        {
-            reader.ReadByte();
-            reader.ReadInt16();
-            var maxHp = reader.ReadInt16();
-
-            var balanceSheet = player.GetOrCreateBalanceSheet();
-            var oldMaxHp = player.TPlayer.statLifeMax;
-            while (oldMaxHp < maxHp && oldMaxHp <= 400)
-            {
-                balanceSheet.AddTransaction(ItemID.LifeCrystal, -1);
-                oldMaxHp += 20;
-            }
-            while (oldMaxHp < maxHp)
-            {
-                balanceSheet.AddTransaction(ItemID.LifeFruit, -1);
-                oldMaxHp += 5;
-            }
-        }
-
-        private void OnUpdatePlayerMp(TSPlayer player, BinaryReader reader)
-        {
-            reader.ReadByte();
-            reader.ReadInt16();
-            var maxMp = reader.ReadInt16();
-
-            var balanceSheet = player.GetOrCreateBalanceSheet();
-            var oldMaxMp = player.TPlayer.statManaMax;
-            while (oldMaxMp < maxMp)
-            {
-                balanceSheet.AddTransaction(ItemID.ManaCrystal, -1);
-                oldMaxMp += 20;
+                // We give a debit of 2 since the player earns two credits of 1 from picking up the nebula booster.
+                balanceSheet.AddTransaction(Transaction.WorldSlot, itemId, -2);
             }
         }
 
@@ -767,7 +757,6 @@ namespace NoCheat.ItemSpawning
             {
                 var selectedItem = player.SelectedItem;
                 // Don't debit the player if there are ammo reductions in place.
-                // TODO: create a heuristic for infammo
                 if (ReducedAmmoItemIds.Contains(selectedItem.type))
                 {
                     return;
@@ -789,42 +778,27 @@ namespace NoCheat.ItemSpawning
                 }
 
                 var balanceSheet = player.GetOrCreateBalanceSheet();
-                balanceSheet.AddTransaction(projectileItem.type, -1);
+                balanceSheet.AddTransaction(Transaction.WorldSlot, projectileItem.type, -1);
             }
         }
 
         private void OnUpdateTile(TSPlayer player, BinaryReader reader)
         {
             var action = reader.ReadByte();
-            var x = reader.ReadInt16();
-            var y = reader.ReadInt16();
+            reader.ReadInt16();
+            reader.ReadInt16();
             var data = reader.ReadInt16();
             var style = reader.ReadByte();
 
             switch (action)
             {
-                case 0:
-                    var tileType = Main.tile[x, y].type;
-                    if (player.SelectedItem.type == ItemID.Sickle)
-                    {
-                        if (GrassIds.Contains(tileType))
-                        {
-                            var balanceSheet = player.GetOrCreateBalanceSheet();
-                            balanceSheet.AddTransaction(ItemID.Hay, 2);
-                        }
-                        else if (TallGrassIds.Contains(tileType))
-                        {
-                            var balanceSheet = player.GetOrCreateBalanceSheet();
-                            balanceSheet.AddTransaction(ItemID.Hay, 4);
-                        }
-                    }
-                    return;
                 case 1:
                     var tileItem = _createTileLookup[data].FirstOrDefault(i => i.placeStyle == style);
                     if (tileItem != null)
                     {
                         var balanceSheet = player.GetOrCreateBalanceSheet();
-                        balanceSheet.AddTransaction(tileItem.type, -1);
+                        balanceSheet.AddTransaction(
+                            Transaction.WorldSlot, tileItem.tileWand >= 0 ? tileItem.tileWand : tileItem.type, -1);
                     }
                     return;
                 case 3:
@@ -832,7 +806,7 @@ namespace NoCheat.ItemSpawning
                     if (wallItem != null)
                     {
                         var balanceSheet = player.GetOrCreateBalanceSheet();
-                        balanceSheet.AddTransaction(wallItem.type, -1);
+                        balanceSheet.AddTransaction(Transaction.WorldSlot, wallItem.type, -1);
                     }
                     return;
                 case 5:
@@ -841,13 +815,13 @@ namespace NoCheat.ItemSpawning
                 case 16:
                 {
                     var balanceSheet = player.GetOrCreateBalanceSheet();
-                    balanceSheet.AddTransaction(ItemID.Wire, -1);
+                    balanceSheet.AddTransaction(Transaction.WorldSlot, ItemID.Wire, -1);
                     return;
                 }
                 case 8:
                 {
                     var balanceSheet = player.GetOrCreateBalanceSheet();
-                    balanceSheet.AddTransaction(ItemID.Actuator, -1);
+                    balanceSheet.AddTransaction(Transaction.WorldSlot, ItemID.Actuator, -1);
                     return;
                 }
             }

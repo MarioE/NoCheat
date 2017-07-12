@@ -35,16 +35,13 @@ namespace NoCheat.ItemSpawning.Accounting
         }
 
         /// <summary>
-        ///     Adds a transaction with the specified item ID, stack size, and prefix ID.
+        ///     Adds a transaction with the specified slot, item ID, stack size, and prefix ID.
         /// </summary>
+        /// <param name="slot">The slot of the transaction.</param>
         /// <param name="itemId">The item ID, which must be non-negative and in range.</param>
         /// <param name="stackSize">The stack size.</param>
         /// <param name="prefixId">The prefix ID, which must be in range.</param>
-        /// <param name="checkNext">
-        ///     <c>true</c> to wait for the next transaction to see if it would get canceled out; otherwise,
-        ///     <c>false</c>.
-        /// </param>
-        public void AddTransaction(int itemId, int stackSize, byte prefixId = 0, bool checkNext = false)
+        public void AddTransaction(int slot, int itemId, int stackSize, byte prefixId = 0)
         {
             Debug.Assert(itemId >= 0, "Item ID must be non-negative.");
             Debug.Assert(itemId < ItemID.Count, "Item ID must be in range.");
@@ -55,34 +52,103 @@ namespace NoCheat.ItemSpawning.Accounting
                 return;
             }
 
-            // Convert coins into copper coins. This simplifies our logic significantly, since clients will be
-            // casually convert between denominations.
+            // Convert all coins into copper coins. This makes our logic for processing coins significantly simpler.
             while (itemId >= ItemID.SilverCoin && itemId <= ItemID.PlatinumCoin)
             {
                 --itemId;
                 stackSize *= 100;
             }
 
-            var transaction = new Transaction(itemId, stackSize, prefixId, _player);
             lock (_lock)
             {
+                var credits = _credits.FindAll(c => c.Info.Stage == PipelineStage.Simplifying);
+                var debits = _debits.FindAll(d => d.Info.Stage == PipelineStage.Simplifying);
+                // If the slot is the mouse, trash can, or special stack update slot, then we need to be looking for the
+                // most recent transaction that matches exactly. This is because we're essentially checking for
+                // inventory management or item stacking by clients; whenever an item is moved around in the inventory,
+                // the mouse slot or the trash can slot will be updated last.
+                //
+                // This also handles dropping items from the mouse for a similar reason, even though it's not strictly
+                // inventory management.
+                if (slot == Transaction.MouseSlot || slot == Transaction.TrashCanSlot ||
+                    slot == Transaction.StackUpdateSlot)
+                {
+                    var searchTransactions = stackSize > 0 ? debits : credits;
+                    var searchTransaction = searchTransactions.Reversed().FirstOrDefault(
+                        t => t.ItemId == itemId && t.StackSize == -stackSize && t.PrefixId == prefixId);
+                    if (searchTransaction != null)
+                    {
+                        searchTransaction.StackSize = 0;
+                        Debug.WriteLine($"DEBUG: [{searchTransaction.GetHashCode():X8}] cleared by mouse/trash/stack");
+                        return;
+                    }
+                }
+                // If we have a credit, we need to be looking at world debits. Furthermore, those world debits must
+                // have either occurred with the player selecting the proper slot (e.g., placing an item requires that
+                // item to be selected), or the slot is the first matching slot in the player's inventory (e.g.,
+                // painting a tile requires the first matching paint to be used).
+                //
+                // FindItem should work properly, since all calls from this method should be occurring on the thread
+                // that receives packets. So information will be updated in sync with the arriving packets.
+                else if (stackSize > 0)
+                {
+                    var firstSlot = _player.TPlayer.FindItem(itemId);
+                    foreach (var debit in debits.Reversed().Where(
+                        d => d.Slot == Transaction.WorldSlot && (d.Info.SelectedSlot == slot || slot == firstSlot) &&
+                             d.ItemId == itemId && d.StackSize < 0 && d.PrefixId == prefixId))
+                    {
+                        var payment = Math.Min(stackSize, -debit.StackSize);
+                        Debug.Assert(payment > 0, "Payment must be positive");
+                        stackSize -= payment;
+                        debit.StackSize += payment;
+                        Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] cleared by world, x{payment}");
+
+                        if (stackSize == 0)
+                        {
+                            return;
+                        }
+                    }
+                }
+                // If we have a debit, we need to be looking at world credits. We don't exactly care what slot this
+                // debit is, since the debit could be anywhere.
+                else if (stackSize < 0)
+                {
+                    foreach (var credit in credits.Reversed().Where(
+                        c => c.Slot == Transaction.WorldSlot &&
+                             c.ItemId == itemId && c.StackSize > 0 && c.PrefixId == prefixId))
+                    {
+                        var payment = Math.Min(credit.StackSize, -stackSize);
+                        Debug.Assert(payment > 0, "Payment must be positive");
+                        credit.StackSize -= payment;
+                        stackSize += payment;
+                        Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] cleared by world, x{payment}");
+
+                        if (stackSize == 0)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                var transaction = new Transaction(slot, itemId, stackSize, prefixId, _player);
                 var transactions = stackSize > 0 ? _credits : _debits;
                 transactions.Add(transaction);
-                Debug.WriteLine($"DEBUG: [{transaction.GetHashCode():X8}] transaction {transaction}");
+                Debug.WriteLine($"DEBUG: [{transaction.GetHashCode():X8}] added transaction {transaction}");
             }
         }
 
         /// <summary>
-        ///     Forgets a transaction of the specified item ID and prefix ID up to the stack size.
+        ///     Forgets a debit of the specified item ID and prefix ID up to the stack size.
         /// </summary>
         /// <param name="itemId">The item ID, which must be non-negative and in range.</param>
-        /// <param name="stackSize">The stack size.</param>
+        /// <param name="stackSize">The stack size, which must be positive.</param>
         /// <param name="prefixId">The prefix ID, which must be in range.</param>
-        /// <returns><c>true</c> if a debit was forgiven; otherwise, <c>false</c>.</returns>
-        public bool ForgetTransaction(int itemId, int stackSize, byte prefixId = 0)
+        /// <returns><c>true</c> if any debits were forgotten; otherwise, <c>false</c>.</returns>
+        public bool ForgetDebit(int itemId, int stackSize, byte prefixId = 0)
         {
             Debug.Assert(itemId >= 0, "Item ID must be non-negative.");
             Debug.Assert(itemId < ItemID.Count, "Item ID must be in range.");
+            Debug.Assert(stackSize > 0, "Stack size must be positive.");
             Debug.Assert(prefixId < PrefixID.Count, "Prefix ID must be in range.");
 
             if (itemId == 0 || stackSize == 0)
@@ -90,53 +156,33 @@ namespace NoCheat.ItemSpawning.Accounting
                 return false;
             }
 
-            // Convert coins into copper coins. This simplifies our logic significantly, since clients will be
-            // casually convert between denominations.
+            // Convert all coins into copper coins. This makes our logic for processing coins significantly simpler.
             while (itemId >= ItemID.SilverCoin && itemId <= ItemID.PlatinumCoin)
             {
                 --itemId;
                 stackSize *= 100;
             }
 
-            var oldStackSize = stackSize;
             lock (_lock)
             {
-                if (stackSize > 0)
+                var succeeded = false;
+                foreach (var debit in _debits.Reversed().Where(
+                    d => d.ItemId == itemId && d.StackSize < 0 && d.PrefixId == prefixId))
                 {
-                    foreach (var credit in _credits.Where(
-                        c => c.ItemId == itemId && c.StackSize > 0 && c.PrefixId == prefixId))
-                    {
-                        var payment = Math.Min(credit.StackSize, stackSize);
-                        Debug.Assert(payment > 0, "Payment must be positive.");
-                        credit.StackSize -= payment;
-                        stackSize -= payment;
-                        Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] paid for by {-payment}, forgotten");
+                    var payment = Math.Min(stackSize, -debit.StackSize);
+                    Debug.Assert(payment > 0, "Payment must be positive");
+                    stackSize -= payment;
+                    debit.StackSize += payment;
+                    Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] cleared by forgetting, x{payment}");
+                    succeeded = true;
 
-                        if (stackSize == 0)
-                        {
-                            return true;
-                        }
+                    if (stackSize == 0)
+                    {
+                        break;
                     }
                 }
-                else
-                {
-                    foreach (var debit in _debits.Where(
-                        d => d.ItemId == itemId && d.StackSize < 0 && d.PrefixId == prefixId))
-                    {
-                        var payment = Math.Min(-stackSize, -debit.StackSize);
-                        Debug.Assert(payment > 0, "Payment must be positive.");
-                        stackSize += payment;
-                        debit.StackSize += payment;
-                        Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for by {payment}, forgotten");
-
-                        if (stackSize == 0)
-                        {
-                            return true;
-                        }
-                    }
-                }
+                return succeeded;
             }
-            return stackSize != oldStackSize;
         }
 
         /// <summary>
@@ -157,19 +203,13 @@ namespace NoCheat.ItemSpawning.Accounting
             }
         }
 
-        private IList<Transaction> GetCredits(PipelineStage stage) =>
-            _credits.Where(c => c.Info.Stage == stage).ToList();
-
-        private IList<Transaction> GetDebits(PipelineStage stage) =>
-            _debits.Where(c => c.Info.Stage == stage).ToList();
-
         private void HandlePipeline(Config config)
         {
             var periods = new Dictionary<PipelineStage, TimeSpan>
             {
+                [PipelineStage.Simplifying] = config.SimplifyingPeriod,
                 [PipelineStage.CheckingRecipes] = config.CheckingRecipesPeriod,
-                [PipelineStage.CheckingConversions] = config.CheckingConversionsPeriod,
-                [PipelineStage.Simplifying] = config.SimplifyingPeriod
+                [PipelineStage.CheckingConversions] = config.CheckingConversionsPeriod
             };
             foreach (var transaction in _credits.Concat(_debits))
             {
@@ -185,13 +225,8 @@ namespace NoCheat.ItemSpawning.Accounting
             var session = _player.GetOrCreateSession();
             foreach (var debit in _debits.Where(d => d.StackSize < 0 && d.Info.Stage == PipelineStage.Expired))
             {
-                var item = debit.ToItem();
-                var points = -item.stack * config.PointOverrides.Get(item.type, config.Points.Get(item.rare));
-                if (points > 0)
-                {
-                    session.AddInfraction(points, config.Duration, $"spawning {item.Name} x{-item.stack}");
-                }
-
+                // First, try to remove the expired debit from the player's inventory. If that fails, then give them an
+                // infraction as a last resort.
                 var playerItems = _player.GetAllItems().ToList();
                 for (var i = 0; i < playerItems.Count; ++i)
                 {
@@ -202,7 +237,7 @@ namespace NoCheat.ItemSpawning.Accounting
                         Debug.Assert(payment > 0, "Payment must be positive.");
                         playerItem.stack -= payment;
                         debit.StackSize += payment;
-                        Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for by {payment}");
+                        Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for, x{payment}");
                         _player.SendData(PacketTypes.PlayerSlot, "", _player.Index, i, playerItem.prefix);
                     }
 
@@ -211,6 +246,13 @@ namespace NoCheat.ItemSpawning.Accounting
                         break;
                     }
                 }
+
+                var item = debit.ToItem();
+                var points = -item.stack * config.PointOverrides.Get(item.type, config.Points.Get(item.rare));
+                if (points > 0)
+                {
+                    session.AddInfraction(points, config.Duration, $"spawning {item.Name} x{-item.stack}");
+                }
             }
             _credits.RemoveAll(c => c.StackSize == 0 || c.Info.Stage == PipelineStage.Expired);
             _debits.RemoveAll(d => d.StackSize == 0 || d.Info.Stage == PipelineStage.Expired);
@@ -218,11 +260,13 @@ namespace NoCheat.ItemSpawning.Accounting
 
         private void ProcessConversions(Config config)
         {
-            var credits = GetCredits(PipelineStage.CheckingConversions);
-            var debits = GetDebits(PipelineStage.CheckingConversions);
-            // The reason that we have a small grace period here is that the credit may have occurred before all of the
-            // debits. This makes it more likely that all the necessary debits are in the correct stage.
-            foreach (var credit in credits.Where(c => _updateTime > c.Info.LastUpdate + config.GracePeriod))
+            var credits = _credits.FindAll(c => c.Info.Stage == PipelineStage.CheckingConversions);
+            var debits = _debits.FindAll(d => d.Info.Stage == PipelineStage.CheckingConversions);
+            // Conversions can only occur with inventory slots. We also have a small grace period here since the credit
+            // may have occurred before the corresponding debits. This makes it more likely that all the debits are
+            // in the correct stage.
+            foreach (var credit in credits.Where(
+                c => c.Slot >= 0 && _updateTime > c.Info.LastUpdate + config.GracePeriod))
             {
                 ItemConversion conversion;
                 if (credit.ItemId == credit.Info.QuestFishId && credit.Info.TalkingToNpcId == NPCID.Angler)
@@ -257,47 +301,51 @@ namespace NoCheat.ItemSpawning.Accounting
                 _recipeLookup = Main.recipe.ToLookup(r => r.createItem.type);
             }
 
-            var credits = GetCredits(PipelineStage.CheckingRecipes);
-            var debits = GetDebits(PipelineStage.CheckingRecipes);
-            // The reason that we have a small grace period here is that the debit may have occurred before all of the
-            // credits. This makes it more likely that all the necessary credits are in the correct stage.
-            foreach (var debit in debits.Where(d => _updateTime > d.Info.LastUpdate + config.GracePeriod))
+            var credits = _credits.FindAll(c => c.Info.Stage == PipelineStage.CheckingRecipes);
+            var debits = _debits.FindAll(d => d.Info.Stage == PipelineStage.CheckingRecipes);
+            // Crafting can only occur with the mouse slot. We also have a small grace period here since the debit
+            // may have occurred before the corresponding credits. This makes it more likely that all the credits are
+            // in the correct stage.
+            foreach (var debit in debits.Where(
+                d => d.Slot == Transaction.MouseSlot && _updateTime > d.Info.LastUpdate + config.GracePeriod))
             {
                 bool ProcessRecipe(Recipe recipe)
                 {
                     var payments = new Dictionary<Transaction, int>();
                     foreach (var ingredient in recipe.requiredItem)
                     {
-                        var ingredientDebit = -ingredient.stack;
+                        var stackLeft = ingredient.stack;
                         var ingredientIds = recipe.GetSubstituteIds(ingredient.type).ToList();
-                        foreach (var credit in credits.Where(c => ingredientIds.Contains(c.ItemId) && c.StackSize > 0))
+                        // Crafting ingredients can only be taken from the inventory.
+                        foreach (var credit in credits.Where(
+                            c => c.Slot >= 0 && ingredientIds.Contains(c.ItemId) && c.StackSize > 0))
                         {
-                            var payment = Math.Min(credit.StackSize, -ingredientDebit);
+                            var payment = Math.Min(credit.StackSize, stackLeft);
                             Debug.Assert(payment > 0, "Payment must be positive.");
                             payments[credit] = payment;
-                            ingredientDebit += payment;
+                            stackLeft -= payment;
 
-                            if (ingredientDebit == 0)
+                            if (stackLeft == 0)
                             {
                                 break;
                             }
                         }
 
-                        if (ingredientDebit < 0)
+                        if (stackLeft > 0)
                         {
                             return false;
                         }
                     }
 
                     debit.StackSize += recipe.createItem.stack;
-                    Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for by {recipe.createItem.stack}, recipe");
+                    Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for, x{recipe.createItem.stack}, recipe");
                     if (!recipe.alchemy || !debit.Info.NearAlchemyTable)
                     {
                         foreach (var kvp in payments)
                         {
                             var credit = kvp.Key;
                             credit.StackSize -= kvp.Value;
-                            Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] paid for by {-kvp.Value}, recipe");
+                            Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] paid for, x{-kvp.Value}, ingredient");
                         }
                     }
                     return true;
@@ -314,24 +362,19 @@ namespace NoCheat.ItemSpawning.Accounting
 
         private void ProcessSimplifying(Config config)
         {
-            var credits = GetCredits(PipelineStage.Simplifying);
-            var debits = GetDebits(PipelineStage.Simplifying);
-            foreach (var debit in debits)
+            var credits = _credits.FindAll(c => c.Info.Stage == PipelineStage.Simplifying);
+            var debits = _debits.FindAll(d => d.Info.Stage == PipelineStage.Simplifying);
+            foreach (var credit in credits.Where(c => c.ItemId == ItemID.CopperCoin))
             {
-                // Only check credits that are within the grace period of the debit. This prevents simplification from
-                // affecting credits or debits that are farther ahead.
-                foreach (var credit in credits.Where(
-                    c => c.ItemId == debit.ItemId && c.StackSize > 0 && c.PrefixId == debit.PrefixId &&
-                         (debit.Info.LastUpdate - c.Info.LastUpdate).Duration() < config.GracePeriod))
+                foreach (var debit in debits.Where(d => d.ItemId == ItemID.CopperCoin && d.StackSize < 0))
                 {
                     var payment = Math.Min(credit.StackSize, -debit.StackSize);
-                    Debug.Assert(payment > 0, "Payment must be positive.");
+                    Debug.Assert(payment > 0, "Payment must be positive");
                     credit.StackSize -= payment;
                     debit.StackSize += payment;
-                    Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] paid for by {-payment}");
-                    Debug.WriteLine($"DEBUG: [{debit.GetHashCode():X8}] paid for by {payment}");
+                    Debug.WriteLine($"DEBUG: [{credit.GetHashCode():X8}] cleared by coin simplification, x{payment}");
 
-                    if (debit.StackSize == 0)
+                    if (credit.StackSize == 0)
                     {
                         break;
                     }

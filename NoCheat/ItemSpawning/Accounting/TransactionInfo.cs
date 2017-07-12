@@ -23,6 +23,7 @@ namespace NoCheat.ItemSpawning.Accounting
             QuestFishId = Main.anglerQuestItemNetIDs[Main.anglerQuest];
             var npcIndex = player.TPlayer.talkNPC;
             SelectedItemId = player.SelectedItem.type;
+            SelectedSlot = player.TPlayer.selectedItem;
             TalkingToNpcId = npcIndex < 0 ? 0 : Main.npc[npcIndex].type;
         }
 
@@ -45,6 +46,11 @@ namespace NoCheat.ItemSpawning.Accounting
         ///     Gets the selected item ID at the time of the transaction.
         /// </summary>
         public int SelectedItemId { get; }
+
+        /// <summary>
+        ///     Gets the selected slot at the time of the transaction.
+        /// </summary>
+        public int SelectedSlot { get; }
 
         /// <summary>
         ///     Gets or sets the stage.

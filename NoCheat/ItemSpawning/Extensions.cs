@@ -17,6 +17,7 @@ namespace NoCheat.ItemSpawning
         private const string BalanceSheetKey = "NoCheat_ItemSpawning_BalanceSheet";
         private const string ChestItemKey = "NoCheat_ItemSpawning_ChestItem";
         private const string DestroyedProjectileIdKey = "NoCheat_ItemSpawning_DestroyedProjectileId";
+        private const string LastUpdatedItemKey = "NoCheat_ItemSpawning_LastUpdatedItem";
         private const string ShopKey = "NoCheat_ItemSpawning_Shop";
         private const string WeaponRackItemIdKey = "NoCheat_ItemSpawning_WeaponRackItemId";
 
@@ -69,6 +70,18 @@ namespace NoCheat.ItemSpawning
             Debug.Assert(player != null, "Player must not be null.");
 
             return player.GetData<int>(DestroyedProjectileIdKey);
+        }
+
+        /// <summary>
+        ///     Gets the last updated item sent by the specified player.
+        /// </summary>
+        /// <param name="player">The player, which must not be <c>null</c>.</param>
+        /// <returns>The last updated item.</returns>
+        public static NetItem GetLastUpdatedItem([NotNull] this TSPlayer player)
+        {
+            Debug.Assert(player != null, "Player must not be null.");
+
+            return player.GetData<NetItem>(LastUpdatedItemKey);
         }
 
         /// <summary>
@@ -184,6 +197,18 @@ namespace NoCheat.ItemSpawning
             Debug.Assert(player != null, "Player must not be null.");
 
             player.SetData(DestroyedProjectileIdKey, destroyedProjectileId);
+        }
+
+        /// <summary>
+        ///     Sets the last updated item sent by the specified player.
+        /// </summary>
+        /// <param name="player">The player, which must not be <c>null</c>.</param>
+        /// <param name="item">The lst updated item.</param>
+        public static void SetLastUpdatedItem([NotNull] this TSPlayer player, NetItem item)
+        {
+            Debug.Assert(player != null, "Player must not be null.");
+
+            player.SetData(LastUpdatedItemKey, item);
         }
 
         /// <summary>
